@@ -1,0 +1,17 @@
+{
+  "@context": "https://kotodama.etzhayyim.com/ns/actor-manifest/v1",
+  "@type": "ActorManifest",
+  "did": "did:web:contentengine.etzhayyim.com",
+  "nanoid": "cten0001",
+  "name": "contentengine",
+  "displayName": "Etzhayyim Content Engine",
+  "description": "Personalized Content Engine — LangGraph profile→match→draft→rank loop. Cohort-first personalization, no individual PII. Integrates news+narou signals. Optional ads.etzhayyim.com sponsor slot.",
+  "performerType": "service",
+  "domain": "contentengine.etzhayyim.com",
+  "capabilities": [
+    "com.etzhayyim.apps.contentengine.generateContent",
+    "com.etzhayyim.apps.contentengine.getContent",
+    "com.etzhayyim.apps.contentengine.listContent",
+    "com.etzhayyim.apps.contentengine.registerCohortProfile"
+  ]
+}

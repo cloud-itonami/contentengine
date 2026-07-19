@@ -1,0 +1,36 @@
+{
+  "name": "kotodama-cten0001",
+  "main": "svelte/.svelte-kit/cloudflare/_worker.js",
+  "compatibility_date": "2025-03-17",
+  "compatibility_flags": [
+    "nodejs_compat",
+    "nodejs_als"
+  ],
+  "vars": {
+    "APP_CAPABILITIES": "[\"bpmn-dispatch\",\"generateContent\",\"getContent\",\"listContent\",\"registerCohortProfile\"]",
+    "APP_DESCRIPTION": "Personalized Content Engine — LangGraph profile→match→draft→rank loop. Cohort-first personalization, no individual PII. Integrates news+narou signals. Optional ads.etzhayyim.com sponsor slot.",
+    "APP_DISPLAY_NAME": "etzhayyim Content Engine",
+    "APP_EMBED_URL": "https://cten0001.etzhayyim.com/?embed=1",
+    "APP_FRAMEWORK": "sveltekit-edge-bff",
+    "APP_NANOID": "cten0001",
+    "APP_PERFORMER_TYPE": "service",
+    "APP_UI_TYPE": "appview",
+    "AGENTGATEWAY_MCP_ROUTER_URL": "https://mcp.etzhayyim.com/xrpc/com.etzhayyim.mcp.message"
+  },
+  "routes": [
+    {
+      "pattern": "cten0001.etzhayyim.com/*",
+      "zone_name": "etzhayyim.com"
+    },
+    {
+      "pattern": "contentengine.etzhayyim.com/*",
+      "zone_name": "etzhayyim.com"
+    }
+  ],
+  "assets": {
+    "directory": "./svelte/.svelte-kit/cloudflare/client",
+    "binding": "ASSETS",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "none"
+  }
+}

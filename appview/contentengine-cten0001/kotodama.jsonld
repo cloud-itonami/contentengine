@@ -1,0 +1,44 @@
+{
+  "@context": "https://kotodama.etzhayyim.com/ns/v1",
+  "@type": "KotodamaApp",
+  "nanoid": "cten0001",
+  "name": "contentengine",
+  "displayName": "Etzhayyim Content Engine",
+  "description": "Personalized Content Engine — LangGraph profile→match→draft→rank loop. Cohort-first personalization, no individual PII. Integrates news+narou signals. Optional ads.etzhayyim.com sponsor slot.",
+  "did": "did:web:contentengine.etzhayyim.com",
+  "domain": "contentengine.etzhayyim.com",
+  "performerType": "service",
+  "uiType": "appview",
+  "runtimeType": "ts-thin-edge",
+  "bpmn": "etzhayyim-root/00-contracts/bpmn/com/etzhayyim/contentengine",
+  "routes": [
+    { "pattern": "cten0001.etzhayyim.com/*", "zone_name": "etzhayyim.com" },
+    { "pattern": "contentengine.etzhayyim.com/*", "zone_name": "etzhayyim.com" }
+  ],
+  "subscribeRepos": [
+    {
+      "collection": "com.etzhayyim.apps.news.article",
+      "description": "Ingest news articles as content signals for personalization"
+    },
+    {
+      "collection": "com.etzhayyim.narou.chapter",
+      "description": "Ingest narou chapters as content signals for creative personalization"
+    }
+  ],
+  "capabilities": [
+    "com.etzhayyim.apps.contentengine.generateContent",
+    "com.etzhayyim.apps.contentengine.getContent",
+    "com.etzhayyim.apps.contentengine.listContent",
+    "com.etzhayyim.apps.contentengine.registerCohortProfile"
+  ],
+  "integrations": {
+    "ads": "com.etzhayyim.apps.ads.createCampaign",
+    "newsIngest": "com.etzhayyim.apps.news.article",
+    "narouIngest": "com.etzhayyim.narou.chapter"
+  },
+  "piiPolicy": {
+    "tier": 0,
+    "sensitivity_ord": 0,
+    "notes": "Cohort-level personalization only — no individual PII stored (ADR-0018)"
+  }
+}
