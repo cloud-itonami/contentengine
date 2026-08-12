@@ -1,0 +1,16 @@
+# docs/operator-quickstart.md の step 1〜4 を踏むと、ここに書いてあるものが
+# 全部 untracked で現れる（node_modules だけで 268 MB / 69 entry）。
+# `.gitignore` が無いままだと `git add -A` が丸ごと巻き込むので置いてある。
+
+node_modules/
+.svelte-kit/
+.wrangler/
+.DS_Store
+
+# `.wrangler/` は 2 箇所に出る —— `svelte/` の中（build）と、その 1 つ上の
+# appview ルート（`wrangler dev` を wrangler.jsonc の隣で回すため）。
+# 上のパターンは末尾スラッシュだけなのでどちらの深さにも当たる。
+
+# package-lock.json は **意図的に無視していない**。
+# 今日この repo に lockfile は無く、quickstart は `npm ci` ではなく
+# `npm install` を使う（理由と、その結果解決された版は quickstart step 1）。
