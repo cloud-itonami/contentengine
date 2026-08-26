@@ -4,23 +4,27 @@
 起動ではなく **「何が今日も動き、何が死んでいるか」を自分の手で確かめること**。
 所要 5 分（依存の取得を除く）。**Cloudflare アカウントも API token も secret も要らない。**
 
-ここに書いてある手順は **2026-08-12 に実際に踏んで、貼ってある出力はその実測値**。
-踏めなかった手順は step 7 に「踏めない」と、理由つきで書いてある。
+**2026-08-26 に、UI（ランディング画面）を SvelteKit から ClojureScript
+（reagent + re-frame + `jp-go-dds`）へ移行した。** step 0〜4 はこの新しい
+`cljs/` ビルドの手順に書き換えてあり、**2026-08-26 に実際に踏んで、貼ってある
+出力はその実測値**。step 5〜6（DNS・upstream contract の裏取り）はフレームワークに
+依存しないので 2026-08-12 の実測のまま。踏めなかった手順は step 7 に「踏めない」と、
+理由つきで書いてある。
 
 ## 0. 前提
 
-Node だけ。実測した版:
+Node + Clojure CLI（`clojure`）。実測した版:
 
 ```bash
-node --version   # v26.3.0
-npm --version    # 11.16.0
+node --version       # v26.7.0
+npm --version        # 11.19.0
+clojure --version    # Clojure CLI version 1.12.5.1654
 ```
 
-作業ディレクトリは svelte アプリの中（**step 4-b だけ 1 つ上に出る** —— そこだけ
-`wrangler.jsonc` の隣で動かす必要がある）:
+作業ディレクトリは cljs アプリの中:
 
 ```bash
-cd appview/contentengine-cten0001/svelte
+cd appview/contentengine-cten0001/cljs
 ```
 
 **重い build は 1 本に制限されている**（workspace 規約）。step 2 は必ず
@@ -33,255 +37,132 @@ node /path/to/com-junkawasaki/scripts/resource-guard.mjs status
 
 ## 1. 依存を入れる
 
-**`npm ci` は使えない。この repo に lockfile が無い。**
-
 ```bash
 npm install --no-audit --no-fund
 ```
 
 ```
-added 92 packages in 37s
-npm warn allow-scripts 3 packages have install scripts not yet covered by allowScripts:
-npm warn allow-scripts   esbuild@0.25.12 (postinstall: node install.js)
-npm warn allow-scripts   esbuild@0.28.1 (postinstall: node install.js)
-npm warn allow-scripts   workerd@1.20260804.1 (postinstall: node install.js)
+added 129 packages in 11s
 ```
 
-**この allow-scripts 警告は無視してよい**（npm 11 の既定で postinstall が保留される）
-—— esbuild も workerd も **step 2 と step 4 は警告を出したまま成功した**。
+`package.json` は `react` / `react-dom` ^18.2.0 と `shadow-cljs` 2.28.20 を持つ
+（reagent が npm 側の React を要求するため——`jvm-new-surface-guard` により
+reagent/re-frame 本体は `deps.edn` の `:cljs` alias 側で管理し、npm 側は React だけ）。
+JVM 側の依存（`org.clojure/clojure` + `io.github.kotoba-lang/jp-go-digital-design-system`
+とその推移的依存 `html` / `css` / `kotoba-kir`）は `deps.edn` に固定した git SHA で
+`clojure` コマンドが解決する（`~/.gitlibs` にキャッシュされていれば追加のネットワーク
+アクセスは要らない）。
 
-lockfile が無いので、`package.json` の caret 範囲から**毎回新しく解決される**。
-2026-08-12 に解決された版（69 entry / `node_modules` 268 MB）:
+## 2. ビルドする
 
-| package | 解決された版 |
-|---|---|
-| `svelte` | 5.56.8 |
-| `@sveltejs/kit` | 2.70.2 |
-| `@sveltejs/adapter-cloudflare` | 7.2.9 |
-| `@sveltejs/vite-plugin-svelte` | 5.1.1 |
-| `vite` | 6.4.3 |
-| `typescript` | 5.9.3 |
-| `svelte-check` | 4.7.5 |
-| `wrangler`（adapter 経由で入る） | 4.121.0 |
-| `@cloudflare/workers-types` | 5.20260812.1 —— **`npm ls` が extraneous と言う** |
-
-**`wrangler` は devDependencies に書かれていないが入る** —— step 4 はこれを使う。
-別途インストールしなくてよい。
-
-⚠ **`@cloudflare/workers-types` が extraneous なのは無害ではない。** `src/app.ts` は
-`ExportedHandler<Env>`（workers-types のグローバル型）を使うのに、その型定義は
-**どの `package.json` からも要求されていない**。つまり `src/app.ts` の型は
-「たまたま入っているもの」に依存している —— もっとも step 3 のとおり、そもそも
-このファイルは型検査もデプロイもされない。
-
-`.gitignore` は 2026-08-12 に足した（それまで無く、この step が
-`node_modules/` 268 MB を untracked で撒いていた）。
-
-## 2. ビルドする（`wrangler.jsonc` が指す成果物を作る）
+**resource guard 経由で。** 2 本ある（`app` = ブラウザ向け、`test` = node-test）:
 
 ```bash
-node /path/to/com-junkawasaki/scripts/resource-guard.mjs run build -- npm run build
+node /path/to/com-junkawasaki/scripts/resource-guard.mjs run build -- npx shadow-cljs compile app
 ```
 
 ```
-✓ built in 1.81s        (client)
-✓ built in 17.39s       (server)
-> Using @sveltejs/adapter-cloudflare
-  ✔ done
+[:app] Compiling ...
+[:app] Build completed. (111 files, 110 compiled, 0 warnings, 39.36s)
 ```
-
-**これが作るものが、そのまま deploy 対象**。`wrangler.jsonc` の宣言と突き合わせる:
 
 ```bash
-ls -la .svelte-kit/cloudflare/_worker.js     # main が指す先
-ls .svelte-kit/cloudflare/client             # assets.directory が指す先
+node /path/to/com-junkawasaki/scripts/resource-guard.mjs run build -- npx shadow-cljs compile test
 ```
 
 ```
--rw-r--r--  1 ... 4335 ... .svelte-kit/cloudflare/_worker.js
-_app
-_headers
+[:test] Compiling ...
+[:test] Build completed. (112 files, 111 compiled, 0 warnings, 22.04s)
 ```
 
-型も通る（build とは別の検査。resource guard は要らない）:
+テストを実行:
 
 ```bash
-npm run check          # = svelte-kit sync && svelte-check
+node out/tests.js
 ```
 
 ```
-COMPLETED 142 FILES 0 ERRORS 0 WARNINGS 0 FILES_WITH_PROBLEMS
+Testing contentengine.app-test
+
+Ran 6 tests containing 22 assertions.
+0 failures, 0 errors.
 ```
 
-⚠ **この 142 file に `src/app.ts` は入っていない。** 理由は自分で確かめられる ——
-`.svelte-kit/tsconfig.json` の `include` は `../src/**/*.ts` までで、これは
-`.svelte-kit/` から見て `svelte/src/` を指す。`src/app.ts` は `svelte/` の**外**、
-1 つ上の階層に在るので届かない:
+**`public/js/app.js`** がブラウザ向け成果物（`shadow-cljs.edn` の
+`:asset-path "js"` / `:output-dir "public/js"` の宣言どおり）。`.gitignore` 済みで、
+コミットには入らない——deploy 対象を再現したいときはこの 2 コマンドを再度回す。
+
+## 2b. `public/index.html` を生成する
+
+`public/index.html` は手で書いた HTML ではなく、`jp-go-dds.page/->page` を実際に
+呼んで DADS CSS を埋め込んだ静的シェル（mount point `<div id="app">` + `<script
+src="js/app.js">` だけを持つ——中身は `contentengine.app` が実行時に re-frame の
+状態から描画する）。ビルド後に**必ず**再生成すること（`gen-index.cljc` は
+`:clj`-only、shadow-cljs のビルドグラフには入らないので step 2 では作られない）:
 
 ```bash
-node -e "console.log(require('./.svelte-kit/tsconfig.json').include.filter(s=>s.includes('src')))"
-# [ '../src/**/*.js', '../src/**/*.ts', '../src/**/*.svelte' ]
+clojure -M -e "(require 'contentengine.gen-index) (contentengine.gen-index/-main)"
 ```
 
-**この repo に `src/app.ts` を型検査するものは無い。** step 3 のとおりデプロイも
-されないので、今日そこは誰にも見られていない。
+```
+wrote public/index.html
+```
 
-## 3. `src/app.ts` がデプロイされないことを確かめる
+決定論的（clock も randomness も network も無い）——再実行しても byte-identical。
 
-README の主張を自分で検証する step。ビルド成果物に、`src/app.ts` だけが持つ
-上流ホストが現れないことを見る:
+## 3. `src/app.ts` がデプロイされないことを確かめる（前と変わらず、理由が強まった）
+
+移行前から `src/app.ts` は死んだコードだった（README「`src/app.ts`
+はデプロイされない」節、2026-08-12 実測: `wrangler.jsonc` の `main` が指していたのは
+`svelte/.svelte-kit/cloudflare/_worker.js` であって `src/app.ts` ではなかった）。
+
+**移行後は理由がもっと単純になった**——`wrangler.jsonc` に `main` 自体が無い
+（assets-only の Worker）。`src/app.ts` を検査するには次で確認できる:
 
 ```bash
-grep -rl "dispatcher.etzhayyim.com" .svelte-kit/cloudflare/ ; echo "exit=$?"
+grep -n '"main":' ../wrangler.jsonc; echo "exit=$?"
 ```
 
 ```
 exit=1
 ```
 
-**1 件も無い**（exit 1 = マッチ 0）。一方、生きている側は成果物に入っている:
+（`"main":` キーは 1 件もヒットしない = assets-only。`src/app.ts` を呼ぶコード経路は
+この repo のどこにも無い。）
+
+## 4. ローカルで見る
+
+**`wrangler dev` / `wrangler deploy` はこの移行では実行していない**（下記 step 7）。
+静的出力だけを見るなら:
 
 ```bash
-grep -rl "mcp.etzhayyim.com" .svelte-kit/output/server | head -1
+cd public && python3 -m http.server 4173
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:4173/     # 200 が期待値（未実測）
 ```
 
-```
-.svelte-kit/output/server/entries/endpoints/xrpc/_...path_/_server.ts.js
-```
-
-step 4 の `/health` 404 が、これの実行時側の裏取りになる。
-
-## 4. 実際に起動して叩く
-
-2 通りある。**production に近いのは workerd 側（4-b）**なので、片方だけ踏むなら
-そちらにすること。両方 2026-08-12 に踏んだ —— **結果はほぼ一致するが、1 行だけ違う**
-（下の表）。
-
-### 4-a. vite preview（Node で動く。速い）
-
-```bash
-npm run preview -- --port 4173
-```
-
-⚠ **`127.0.0.1` では繋がらない。`localhost`（IPv6 `::1`）を使う。**
-
-```bash
-curl -s -o /dev/null -w '%{http_code}\n' http://localhost:4173/     # 200
-curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:4173/     # 000（接続失敗）
-```
-
-### 4-b. wrangler dev（workerd で動く。deploy と同じランタイム）
-
-appview のルート（`wrangler.jsonc` のある場所）から:
+`wrangler dev --local`（workerd、production と同じ assets 配信ランタイム）を
+appview のルート（`wrangler.jsonc` の隣）から試す場合:
 
 ```bash
 cd ..                                  # appview/contentengine-cten0001
-./svelte/node_modules/.bin/wrangler dev --local --port 8788 --ip 127.0.0.1
+npx wrangler dev --local --port 8788 --ip 127.0.0.1
 ```
 
-**Cloudflare へのログインを要求されない**（`--local`）。起動すると bindings が
-表に出るので、`wrangler.jsonc` の `vars` 9 件がそのまま入っていることを目視できる:
+**この 2 つはどちらもこの移行では実行していない（UNVERIFIED）。** 実行するときは
+workspace 規約（本 CLAUDE.md「本番デプロイは `origin/main` を包含した checkout
+からのみ行う」節・「検証を省いた blind deploy をしない」節）に従うこと。
 
-```
-env.ASSETS                                        Assets                  local
-env.APP_CAPABILITIES ("["bpmn-dispatch","gener...) Environment Variable   local
-env.APP_DESCRIPTION ("Personalized Content Eng...) Environment Variable   local
-env.APP_DISPLAY_NAME ("etzhayyim Content Engine")  Environment Variable   local
-env.APP_EMBED_URL ("https://cten0001.etzhayyim...) Environment Variable   local
-env.APP_FRAMEWORK ("sveltekit-edge-bff")           Environment Variable   local
-env.APP_NANOID ("cten0001")                        Environment Variable   local
-env.APP_PERFORMER_TYPE ("service")                 Environment Variable   local
-env.APP_UI_TYPE ("appview")                        Environment Variable   local
-env.AGENTGATEWAY_MCP_ROUTER_URL ("https://mcp....) Environment Variable   local
-...
-[wrangler:info] ✨ Parsed 2 valid header rules.
-[wrangler:info] Ready on http://127.0.0.1:8788
-```
+### 旧 BFF（`+server.ts`）はもう呼ばれない
 
-⚠ `Assets directory watcher hit a platform limit and has been disabled.` が出るが、
-**macOS の file watcher 上限の話で、deploy には影響しない**（配信は正常）。
+旧 `svelte/src/routes/xrpc/[...path]/+server.ts`（MCP router への唯一の実処理）は
+`appview/contentengine-cten0001/backend-frozen/routes/xrpc/[...path]/+server.ts`
+へ provenance header 付きで凍結退避した——コードは残っているが、SvelteKit 前提
+（`@sveltejs/kit` import・`./$types`）でそのままは動かず、**このリポジトリの
+どこからも呼ばれていない**。2026-08-12 時点では上流 DNS が無いために
+`POST /xrpc/…` は 500 だった（下記 step 5〜6 は今も有効な記録）。**今日は
+届く前に終わる**——assets-only の Worker に `/xrpc/*` を処理するコードが無い。
 
-⚠ **`wrangler dev` の出力をパイプで受けるとこの表は見えない**（stdout がブロック
-バッファされ、`| head` の先で詰まる）。ファイルへリダイレクトして読むこと:
-`wrangler dev … > /tmp/wrangler.log 2>&1`。実測でここに数分溶かした。
-
-### 叩いた結果
-
-`$BASE` = `http://localhost:4173`（4-a）または `http://127.0.0.1:8788`（4-b）。
-nsid は上流 lexicon に実在するものを使う:
-
-```bash
-NSID=com.etzhayyim.apps.contentengine.generateContent
-curl -s -o /dev/null -w 'GET  /           → %{http_code}\n' "$BASE/"
-curl -s -o /dev/null -w 'GET  /health     → %{http_code}\n' "$BASE/health"
-curl -s -o /dev/null -w 'OPT  /xrpc/nsid  → %{http_code} %header{access-control-allow-methods}\n' \
-  -X OPTIONS "$BASE/xrpc/$NSID"
-curl -s -w '\nPOST /xrpc/nsid  → %{http_code}\n' -X POST -H 'content-type: application/json' \
-  -d '{"cohortName":"early-adopters","contentType":"blog_post","topic":"content engine quickstart","maxWords":120}' \
-  "$BASE/xrpc/$NSID"
-```
-
-| 経路 | vite preview | wrangler dev | 読み方 |
-|---|---|---|---|
-| `GET /` | **200** html 2,304B | **200** html 2,304B | ランディングは配信されている。`<title>contentengine-cten0001</title>` |
-| `GET /health` | **404** | **404** | **`src/app.ts` は動いていない**（step 3 の実行時側の証拠） |
-| `OPTIONS /xrpc/…` | **204** `POST,OPTIONS` | **204** `POST,OPTIONS` | CORS preflight だけは上流に触らないので通る |
-| `GET /xrpc/…` | **405** | **405** | `+server.ts` に `GET` は無い |
-| `POST /xrpc/…` | **500** `{"message":"Internal Error"}` | **500** 同じ body | **上流 `mcp.etzhayyim.com` が DNS に無い** |
-| `POST /xrpc/`（nsid 無し） | **403** | **308** | ⚠ **ここだけ食い違う**（下記） |
-
-⚠ **`POST /xrpc/`（末尾スラッシュ、nsid 無し）だけ 2 つの runtime で結果が違う。**
-deploy されるのは workerd 側なので、**本番の挙動は 308**（末尾スラッシュのリダイレクト）
-であって、`+server.ts` が持つ `400 Missing XRPC method` には**どちらでも到達しない**。
-vite preview の 403 が何に由来するかはこの手順では特定していない —— **特定していない
-ことをここに書いておく**（preview 固有の挙動なので、production の判断材料にしない）。
-
-### この BFF が何も検証しないことを見る
-
-同じ `$BASE` に、わざと壊した request を送る:
-
-```bash
-# lexicon の required（cohortName / contentType / topic）を全部欠いた body
-curl -s -w '\n%{http_code}\n' -X POST -H 'content-type: application/json' \
-  -d '{"bogus":1}' "$BASE/xrpc/$NSID"
-# この actor が宣言していない capability
-curl -s -w '\n%{http_code}\n' -X POST -H 'content-type: application/json' \
-  -d '{}' "$BASE/xrpc/com.example.not.a.capability"
-```
-
-```
-{"message":"Internal Error"}
-500
-{"message":"Internal Error"}
-500
-```
-
-**どちらも 400 でも 404 でもなく 500** —— つまり edge は schema も capability も
-見ておらず、`/xrpc/*` なら何でも上流へ投げようとする。`wrangler.jsonc` の
-`APP_CAPABILITIES` 4 件は**宣言であって強制ではない**。
-
-### 500 の中身は runtime で見え方が違う
-
-```bash
-# 4-b（workerd）のログ
-Error: internal error; reference = 8aeh1vbbjr6b6n5s8o764c4m
-    at async POST (.../entries/endpoints/xrpc/_...path_/_server.ts.js:24:20)
-
-# 4-a（Node/undici）のログ
-[500] POST /xrpc/com.etzhayyim.apps.contentengine.generateContent
-TypeError: fetch failed
-```
-
-**production と同じ workerd では原因が読めない**（`internal error; reference=…`）。
-DNS 失敗だと分かるのは Node 側だけ。**切り分けは 4-a でやること。**
-
-`+server.ts` は上流 `fetch` を try で囲っていないので、名前解決の失敗が例外として
-素通りし、ハンドラ内の 502 分岐（`MCP router request failed`）に到達しない。
-上流が復活すればこの経路はそのまま動く。
-
-## 5. 上流が本当に無いことを確かめる
-
-step 4 の 500 を「自分の環境のせい」と誤読しないための裏取り:
+## 5. 上流が本当に無いことを確かめる（2026-08-12 実測のまま——フレームワーク非依存）
 
 ```bash
 for h in contentengine.etzhayyim.com cten0001.etzhayyim.com mcp.etzhayyim.com \
@@ -324,7 +205,7 @@ mcp.etzhayyim    → 000 (Could not resolve host: mcp.etzhayyim.com)
 **zone は生きていて、この actor のホストだけが無い。**
 `wrangler.jsonc` の route 2 本は、どちらも存在しないホスト名を指している。
 
-## 6. 契約が上流に残っていることを確かめる
+## 6. 契約が上流に残っていることを確かめる（2026-08-12 実測のまま——フレームワーク非依存）
 
 実装は消えているが、**wire contract は読める**。GitHub token は要らない ——
 `etzhayyim/root` はこの workspace に checkout 済み（west 管理）:
@@ -344,29 +225,26 @@ BPMN は `CLAUDE.md` の Flow 図と一致する（`contentengine.run_content_ag
 → `SponsorGateway` → `contentengine.create_sponsor_slot` 30s → End、分岐条件は
 `includeSponsorSlot`）。**runbook のこの部分は今日も正しい。**
 
-**そして、この repo の 13 ファイルは上流に原本が残っている**（抽出は move ではなく
-copy だった）。同一であることは自分で確かめられる:
-
-```bash
-cd /path/to/this/repo
-for f in $(git ls-files | grep -vE '^(README|migration)\.edn$'); do
-  cmp -s "$R/60-apps/etzhayyim-project-contentengine/$f" "$f" \
-    && echo "same  $f" || echo "DIFF  $f"
-done
-```
-
-2026-08-12 実測: **13/13 とも `same`**。どちらを直すかを先に決めること
-（片方を直しても他方には伝播しない）。
+**この repo が抽出時に取り込んだ 13 ファイルのうち、`svelte/` 配下の 7 ファイルは
+2026-08-26 に削除済み**（cljs への移行、上記）。残る 6 ファイル
+（`README.edn` を含む metadata・`src/app.ts`・`wrangler.jsonc`・`kotodama.jsonld`
+等）については、上流 `etzhayyim/root` に原本が残っているかどうかを
+2026-08-26 に再確認していない——2026-08-12 実測（13/13 `same`）を最新として
+引用しないこと。
 
 ## 7. ここから先は踏めない（踏まずに書いていない）
 
-以下は **2026-08-12 時点で実行していない**。理由つきで残す:
+以下は **2026-08-26 時点で実行していない**。理由つきで残す:
 
-- **`wrangler deploy`** —— `wrangler.jsonc` の route 2 本のホスト名が DNS に無いので、
-  deploy しても叩ける URL が生えない。**「動いた」を確認できない deploy はしない**
-  （workspace 規約: 検証を省いた blind deploy をしない）。復活させるなら、先に
-  `contentengine.etzhayyim.com` / `cten0001.etzhayyim.com` の DNS と、上流
-  `mcp.etzhayyim.com` の両方を用意する側の判断が要る。
+- **`wrangler dev` / `wrangler deploy`** —— この移行のタスク制約により実行しない
+  （workspace 規約: 検証を省いた blind deploy をしない。build/test の緑を確認した
+  上で、実際の deploy 確認は次の operator に委ねる）。加えて 2026-08-12 実測のとおり
+  `wrangler.jsonc` の route 2 本のホスト名は DNS に無いので、deploy しても
+  叩ける URL が生えない。復活させるなら、先に `contentengine.etzhayyim.com` /
+  `cten0001.etzhayyim.com` の DNS と、上流 `mcp.etzhayyim.com` の両方を用意する側の
+  判断が要る。
+- **`python3 -m http.server` での静的プレビュー**（step 4）—— コマンドは書いたが、
+  この移行では実行していない（UNVERIFIED と明記）。
 - **LangGraph ループ（`load_cohort_profile` → … → `store_content`）** ——
   `CLAUDE.md` が指す `contentengine_worker_main.py` が**どの repo にも見つからない**
   （上流の `40-engine/kotoba/` はディレクトリごと消え、`kotoba-lang/kotodama-py` にも
@@ -384,19 +262,7 @@ done
 git status --porcelain
 ```
 
-```
-?? appview/contentengine-cten0001/svelte/package-lock.json
-```
-
-step 1〜4 が作るもののうち `node_modules/` `.svelte-kit/` `.wrangler/` は
-`.gitignore` 済みなので出ない（`.wrangler/` は **`svelte/` の中と appview ルートの
-2 箇所**に出るが、パターンは両方に当たる）。**残る 1 行は `package-lock.json` で、
-これは意図的に無視していない** —— コミットすれば step 1 が `npm ci` になって再現可能に
-なる（今は毎回解決し直している）。**そうするかどうかはこの repo に再現可能ビルドを
-求めるかどうかの判断**なので、手順としては決めずに、見えるところに残してある。
-
-消したい場合はこれだけ:
-
-```bash
-rm appview/contentengine-cten0001/svelte/package-lock.json
-```
+`cljs/` 配下の `node_modules/` `.shadow-cljs/` `.cpcache/` `out/` `public/js/` は
+`cljs/.gitignore` 済みなので出ない。コミットに入るのは
+`deps.edn` / `shadow-cljs.edn` / `package.json` / `package-lock.json` /
+`src/**` / `test/**` / `public/index.html` だけ。

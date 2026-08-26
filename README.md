@@ -1,8 +1,44 @@
 # cloud-itonami/contentengine
 
 **`contentengine.etzhayyim.com`（パーソナライズド・コンテンツエンジン）の、edge 側だけを
-切り出した凍結コピー。** 実体は SvelteKit の thin edge BFF 1 本 —— 判断は何もせず、
-`POST /xrpc/<nsid>` を MCP router へ JSON-RPC `tools/call` として中継するだけ。
+切り出した凍結コピー。** UI（ランディング画面）は 2026-08-26 に SvelteKit から
+ClojureScript（reagent + re-frame + `jp-go-dds`）へ移行した。判断ロジックは元から
+何も持っておらず、`POST /xrpc/<nsid>` を MCP router へ JSON-RPC `tools/call` として
+中継するだけの薄い BFF だった点は変わらない。
+
+## ClojureScript への移行（2026-08-26）
+
+- **`appview/contentengine-cten0001/svelte/` は削除した。** 置き換えは
+  `appview/contentengine-cten0001/cljs/`（`deps.edn` / `shadow-cljs.edn` /
+  `src/contentengine/app.cljs`（reagent + re-frame view、`jp-go-dds.core` の
+  hiccup 使用）/ `src/contentengine/gen_index.cljc`（`public/index.html` の
+  build-time 生成器、`:clj`-only）/ `test/contentengine/app_test.cljs`）。
+  `+page.svelte` がハードコードしていた `const app = {...}` のフィールド（title/
+  project/name/kind/routeCount/routes/vars/xrpc/relativePath、**既に stale と
+  分かっている `relativePath` も含め**）は `contentengine.app/default-app` へ
+  そのまま移した——直していない（下記「ランディングページは自分の設定と
+  食い違う」節は今もそのとおり）。
+- **`svelte/src/routes/xrpc/[...path]/+server.ts`（唯一の実処理、MCP router への
+  中継）はコードとして削除していない。** SvelteKit 前提のコード
+  （`@sveltejs/kit` import・`./$types`）なのでこのまま動かせず、provenance
+  header 付きでそのまま
+  `appview/contentengine-cten0001/backend-frozen/routes/xrpc/[...path]/+server.ts`
+  へ移した。**この移行によって、そこに書かれていた中継はもう実行されない**
+  ——`wrangler.jsonc` はもう SvelteKit の worker 成果物を `main` に指しておらず
+  （後述）、assets-only の Worker には `/xrpc/*` を処理するコードが無い。
+  以前は上流 DNS が無いために `POST /xrpc/…` は 500 だった（下記「この BFF は
+  何も検証しない」節、2026-08-12 実測）。**今日は違う理由で届かない** ——
+  そのコード自体がどこからも呼ばれていない。どちらの経路も復活させるかは
+  この移行のスコープ外（`src/app.ts` 側の中継が生きているかどうかも未解決の
+  まま、下記「`src/app.ts` はデプロイされない」節を参照）。
+- **`wrangler.jsonc`**: `main`（旧 `svelte/.svelte-kit/cloudflare/_worker.js`）は
+  削除、`assets.directory` は `./cljs/public`、`APP_FRAMEWORK` は
+  `cljs-reagent-re-frame`。`wrangler deploy` は実行していない
+  （UNVERIFIED——下記「ここから先は踏めない」節に理由を追記）。
+- 以下の節は 2026-08-12 実測時点（SvelteKit 版）の記録として残す。DNS・
+  upstream・lexicon・BPMN 契約についての結論はフレームワークに依存しないので
+  今も成立するが、`svelte/` へのパス言及は歴史的記述として読むこと
+  （現物は無い）。
 
 名前が `contentengine` としか言っていないので、まずここで名乗る —— この repo は
 **「コホート単位で記事を生成する LangGraph ループ」そのものではなく、その前に立つ
@@ -163,10 +199,10 @@ production 側のランタイムでは原因が潰れるので、**切り分け�
 | [`etzhayyim/root`](https://github.com/etzhayyim/root) | 抽出元の monorepo。BPMN・lexicon・ADR、**そして同じ 13 ファイルの原本**が今もここ | あちらが**契約の正本**。ここは edge の受付だけ |
 | [`kotoba-lang/kotodama-py`](https://github.com/kotoba-lang/kotodama-py) | 旧 monorepo の Python worker / SQLMesh 資産の移転先 | **contentengine は移されていない**（実測: 該当文字列 0 件）。「py はここ」と当て推量しない |
 | [`kotoba-lang/kotodama`](https://github.com/kotoba-lang/kotodama) | functional-organism runtime 本体 | ランタイム。ここは 1 アプリの facade |
-| `cloud-itonami` の他の appview（`compintel` / `danjo` / `eigyo` …） | 同じ抽出バッチの兄弟。同じ SvelteKit scaffold | **scaffold が同型**。`+page.svelte` は生成物で、中身は nanoid が違うだけ。**振る舞いまで同じとは限らない**（差分は各 repo の quickstart で実測すること） |
+| `cloud-itonami` の他の appview（`compintel` / `danjo` / `eigyo` …） | 同じ抽出バッチの兄弟。2026-08-12 時点では同じ SvelteKit scaffold を共有していた | **ここは 2026-08-26 に ClojureScript へ移行済み**——他の兄弟がまだ SvelteKit かどうかはこの repo からは分からない（各 repo を個別に確認すること）。移行前は `+page.svelte` が生成物で中身は nanoid が違うだけだった。**振る舞いまで同じとは限らない**（差分は各 repo の quickstart で実測すること） |
 | **ここ** | **edge BFF の凍結コピー** | 上のどれでもない。新しい生成ロジックをここに足さない |
 
-## 中身（15 ファイル）
+## 中身（2026-08-26 の ClojureScript 移行後）
 
 ```
 README.edn                 115B  機械可読 metadata（:kind :app）。人間向けの説明は入っていない
@@ -177,12 +213,19 @@ actor-manifest.jsonld            DID did:web:contentengine.etzhayyim.com / nanoi
 migration.edn                    抽出元 etzhayyim/root@c3a74d2 の記録（13 files / 17,995B）。
                                  :destination は実際の行き先と食い違う（上記）
 appview/contentengine-cten0001/
-  wrangler.jsonc                 Worker 設定。main は svelte 側のビルド出力を指す
+  wrangler.jsonc                 Worker 設定。main は無し（assets-only）。assets.directory は ./cljs/public
   kotodama.jsonld                アプリ宣言。subscribeRepos（news / narou）/ integrations（ads）/ piiPolicy tier 0
-  src/app.ts                     **デプロイも型検査もされない**（上記）
-  svelte/                        **これがデプロイされる本体**
-    src/routes/+page.svelte      ランディング。生成物で、中身は自分の設定と食い違う（上記）
-    src/routes/xrpc/[...path]/+server.ts   唯一の実処理。MCP router への中継
+  src/app.ts                     **デプロイも型検査もされない**（上記。移行前からの既知の死んだコード、今回は不変）
+  backend-frozen/                旧 svelte/ の唯一の実処理を provenance header 付きで凍結退避
+    routes/xrpc/[...path]/+server.ts   MCP router への中継。SvelteKit 前提のコードで、
+                                       このリポジトリのどこからも呼ばれていない（上記）
+  cljs/                          **これがデプロイされる本体**（reagent + re-frame + jp-go-dds）
+    deps.edn / shadow-cljs.edn / package.json / .gitignore
+    src/contentengine/app.cljs         view + re-frame event/sub（旧 +page.svelte のポート）
+    src/contentengine/gen_index.cljc   public/index.html の build-time 生成器（:clj-only）
+    test/contentengine/app_test.cljs   cljs.test（6 tests / 22 assertions、実測 2026-08-26）
+    public/index.html                  gen_index が書いた静的シェル（DADS CSS 埋め込み済み）
+    public/js/                         shadow-cljs の出力（.gitignore 済み、コミットしない）
 ```
 
 ## 触る前に
@@ -209,3 +252,9 @@ gate はこの workspace に無い**。凍結を優先して名乗りを持た�
 **何が生きていて何が死んでいるかを読めるようにする方を採った**。抽出時の tree が
 知りたければ `migration.edn` の `:source` に revision と tree hash が固定されている
 （さらに今日は、上流の原本そのものが同じ場所に残っている）。
+
+**2026-08-26 の ClojureScript 移行で `svelte/` を消し `cljs/` と
+`backend-frozen/` を足した時点でも、この gate は探した限り存在しなかった**
+（`docs/verify-custody.cljs` 等の名前で svelte/ を sha256 で pin するチェッカーは
+この repo のどこにも無い——実行前に確認済み）。同じ理由で同じ判断をした:
+凍結より、何が生きていて何が死んでいるかを読めるままにすることを優先した。

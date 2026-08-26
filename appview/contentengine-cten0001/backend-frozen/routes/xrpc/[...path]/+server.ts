@@ -1,3 +1,21 @@
+// PROVENANCE: moved verbatim (content unchanged below this header) from
+// appview/contentengine-cten0001/svelte/src/routes/xrpc/[...path]/+server.ts
+// during the Svelte → ClojureScript migration (agent/cljs-migration).
+//
+// This is a backend HTTP handler (the live XRPC → MCP-router proxy;
+// see README.md "この BFF は何も検証しない" / "`src/app.ts` はデプロイされない"),
+// not a Svelte view. It is preserved here for provenance only and will NOT
+// run as-is: SvelteKit (the `@sveltejs/kit` import, the `./$types` RequestHandler
+// type, and the SvelteKit adapter that used to route requests into this file)
+// is gone from this repo. `wrangler.jsonc` no longer points `main` at a
+// SvelteKit-built worker, so nothing invokes this handler today.
+//
+// Reviving this proxy requires a real Cloudflare Worker entry point (or a
+// re-platformed version of `src/app.ts`, which already proxies a *different*
+// upstream — see README.md's "XRPC の中継が 2 つ在り、動くのは片方だけ" table)
+// that calls this logic explicitly. That decision was out of scope for this
+// migration, which only ported the Svelte UI (see appview/contentengine-cten0001/cljs/).
+
 import { json, type RequestEvent } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 

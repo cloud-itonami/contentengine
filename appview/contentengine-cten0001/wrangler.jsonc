@@ -1,6 +1,17 @@
 {
   "name": "kotodama-cten0001",
-  "main": "svelte/.svelte-kit/cloudflare/_worker.js",
+  // The `main` field is intentionally absent below: this repo's
+  // Svelte→ClojureScript migration removed the SvelteKit worker it used to
+  // point at
+  // (svelte/.svelte-kit/cloudflare/_worker.js — that build no longer exists;
+  // svelte/ itself is gone). `assets.directory` below now points at the
+  // cljs/reagent/re-frame build's static output, served as a code-less
+  // "Workers with assets" deployment (Cloudflare serves ASSETS directly with
+  // no Worker `main` in front of it). `src/app.ts` was already established by
+  // README.md ("`src/app.ts` はデプロイされない") as dead code predating this
+  // migration — it does not call `env.ASSETS.fetch`, so it is NOT wired up
+  // here as a replacement `main` (that would put a worker in front of the
+  // assets with nothing serving them). See docs/operator-quickstart.md.
   "compatibility_date": "2025-03-17",
   "compatibility_flags": [
     "nodejs_compat",
@@ -11,7 +22,7 @@
     "APP_DESCRIPTION": "Personalized Content Engine — LangGraph profile→match→draft→rank loop. Cohort-first personalization, no individual PII. Integrates news+narou signals. Optional ads.etzhayyim.com sponsor slot.",
     "APP_DISPLAY_NAME": "etzhayyim Content Engine",
     "APP_EMBED_URL": "https://cten0001.etzhayyim.com/?embed=1",
-    "APP_FRAMEWORK": "sveltekit-edge-bff",
+    "APP_FRAMEWORK": "cljs-reagent-re-frame",
     "APP_NANOID": "cten0001",
     "APP_PERFORMER_TYPE": "service",
     "APP_UI_TYPE": "appview",
@@ -28,7 +39,7 @@
     }
   ],
   "assets": {
-    "directory": "./svelte/.svelte-kit/cloudflare/client",
+    "directory": "./cljs/public",
     "binding": "ASSETS",
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "none"

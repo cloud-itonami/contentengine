@@ -1,0 +1,54 @@
+(ns contentengine.gen-index
+  "Build-time generator for public/index.html.
+
+  This is the ONE static document (ADR-2608080100: one document, one bundle,
+  one mount) that `public/js/app.js` (compiled from `contentengine.app` by
+  shadow-cljs) mounts into. It carries no app content of its own — the
+  `contentengine-cten0001` facts (title/project/routes/vars/…) are rendered
+  client-side by `contentengine.app/app-view` off re-frame state, exactly like
+  the `+page.svelte` scaffold this replaces rendered them off its inline
+  `const app = {...}`.
+
+  `:clj`-only, and deliberately never `require`d from `contentengine.app` or
+  any other `:cljs` namespace in this project: `jp-go-dds.page` is `.cljc`,
+  but its `:clj` branch (via `jp-go-dds.core`) reaches
+  `jp-go-dds.kotoba-oracle`, which needs `kotoba.kir` on the classpath (see
+  that ns's own docstring for why this is JVM-only by design). File extension
+  is `.cljc` rather than `.clj` only so the reader-conditional boundary below
+  is explicit; nothing in the shadow-cljs build graph reaches this namespace,
+  so shadow-cljs never tries to compile it.
+
+  Deterministic — no clock, no randomness, no network; reads the vendored
+  `jp_go_dds/dds.css` resource off this project's own classpath (resolved via
+  the `io.github.kotoba-lang/jp-go-digital-design-system` git dep in
+  deps.edn) and writes a byte-identical file on every re-run.
+
+  Run (from appview/contentengine-cten0001/cljs/):
+    clojure -M -e \"(require 'contentengine.gen-index) (contentengine.gen-index/-main)\""
+  #?(:clj (:require [clojure.java.io :as io]
+                     [jp-go-dds.page :as page])))
+
+#?(:clj
+   (do
+
+(defn- dds-css []
+  (or (some-> (io/resource "jp_go_dds/dds.css") slurp)
+      (throw (ex-info "jp_go_dds/dds.css not found on classpath — is the jp-go-digital-design-system dep resolved?" {}))))
+
+(defn render
+  "The full HTML document string (with doctype), DADS CSS inlined."
+  []
+  (page/->page
+   {:title "contentengine-cten0001"
+    :description "Cloudflare appview — contentengine-cten0001 (ported from Svelte to ClojureScript/reagent/re-frame)."
+    :css (dds-css)}
+   [:div {:id "app"}]
+   [:script {:src "js/app.js"}]))
+
+(defn -main [& _args]
+  (let [out (io/file "public/index.html")]
+    (some-> (.getParentFile out) .mkdirs)
+    (spit out (render))
+    (println "wrote" (.getPath out))))
+
+   ))
