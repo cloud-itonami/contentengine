@@ -58,7 +58,7 @@ JVM 側の依存（`org.clojure/clojure` + `io.github.kotoba-lang/jp-go-digital-
 **resource guard 経由で。** 2 本ある（`app` = ブラウザ向け、`test` = node-test）:
 
 ```bash
-node /path/to/com-junkawasaki/scripts/resource-guard.mjs run build -- npx shadow-cljs compile app
+node /path/to/com-junkawasaki/scripts/resource-guard.mjs run build -- amu compile --target wasm32-browser app
 ```
 
 ```
@@ -67,7 +67,7 @@ node /path/to/com-junkawasaki/scripts/resource-guard.mjs run build -- npx shadow
 ```
 
 ```bash
-node /path/to/com-junkawasaki/scripts/resource-guard.mjs run build -- npx shadow-cljs compile test
+node /path/to/com-junkawasaki/scripts/resource-guard.mjs run build -- amu compile --target wasm32-browser test
 ```
 
 ```
@@ -101,7 +101,7 @@ src="js/app.js">` だけを持つ——中身は `contentengine.app` が実行�
 `:clj`-only、shadow-cljs のビルドグラフには入らないので step 2 では作られない）:
 
 ```bash
-clojure -M -e "(require 'contentengine.gen-index) (contentengine.gen-index/-main)"
+kbb -M -e "(require 'contentengine.gen-index) (contentengine.gen-index/-main)"
 ```
 
 ```

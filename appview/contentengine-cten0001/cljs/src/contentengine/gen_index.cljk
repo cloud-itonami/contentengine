@@ -24,7 +24,7 @@
   deps.edn) and writes a byte-identical file on every re-run.
 
   Run (from appview/contentengine-cten0001/cljs/):
-    clojure -M -e \"(require 'contentengine.gen-index) (contentengine.gen-index/-main)\""
+    kbb -M -e \"(require 'contentengine.gen-index) (contentengine.gen-index/-main)\""
   #?(:clj (:require [clojure.java.io :as io]
                      [jp-go-dds.page :as page])))
 
