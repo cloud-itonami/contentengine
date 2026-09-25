@@ -25,7 +25,7 @@
 
   Run (from appview/contentengine-cten0001/cljs/):
     kbb -M -e \"(require 'contentengine.gen-index) (contentengine.gen-index/-main)\""
-  #?(:clj (:require [clojure.java.io :as io]
+  #?(:clj (:require [kotoba.io :as io]
                      [jp-go-dds.page :as page])))
 
 #?(:clj
@@ -47,8 +47,8 @@
 
 (defn -main [& _args]
   (let [out (io/file "public/index.html")]
-    (some-> (.getParentFile out) .mkdirs)
+    (some-> (io/parent-file out) io/mkdirs)
     (spit out (render))
-    (println "wrote" (.getPath out))))
+    (println "wrote" (io/path out))))
 
    ))
