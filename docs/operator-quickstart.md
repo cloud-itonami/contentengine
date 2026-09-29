@@ -149,7 +149,7 @@ npx wrangler dev --local --port 8788 --ip 127.0.0.1
 ```
 
 **この 2 つはどちらもこの移行では実行していない（UNVERIFIED）。** 実行するときは
-workspace 規約（本 CLAUDE.md「本番デプロイは `origin/main` を包含した checkout
+workspace 規約（本 AGENTS.md「本番デプロイは `origin/main` を包含した checkout
 からのみ行う」節・「検証を省いた blind deploy をしない」節）に従うこと。
 
 ### 旧 BFF（`+server.ts`）はもう呼ばれない
@@ -221,7 +221,7 @@ generateContent.bpmn                                    # 2,865B、1 本だけ
 generateContent.json  getContent.json  listContent.json  registerCohortProfile.json
 ```
 
-BPMN は `CLAUDE.md` の Flow 図と一致する（`contentengine.run_content_agent` 180s
+BPMN は `AGENTS.md` の Flow 図と一致する（`contentengine.run_content_agent` 180s
 → `SponsorGateway` → `contentengine.create_sponsor_slot` 30s → End、分岐条件は
 `includeSponsorSlot`）。**runbook のこの部分は今日も正しい。**
 
@@ -246,7 +246,7 @@ BPMN は `CLAUDE.md` の Flow 図と一致する（`contentengine.run_content_ag
 - **`python3 -m http.server` での静的プレビュー**（step 4）—— コマンドは書いたが、
   この移行では実行していない（UNVERIFIED と明記）。
 - **LangGraph ループ（`load_cohort_profile` → … → `store_content`）** ——
-  `CLAUDE.md` が指す `contentengine_worker_main.py` が**どの repo にも見つからない**
+  `AGENTS.md` が指す `contentengine_worker_main.py` が**どの repo にも見つからない**
   （上流の `40-engine/kotoba/` はディレクトリごと消え、`kotoba-lang/kotodama-py` にも
   該当文字列 0 件）。`cd` する先が無いので runbook の
   `python -m kotodama.contentengine_worker_main` は踏めない。
