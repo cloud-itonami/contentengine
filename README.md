@@ -50,21 +50,21 @@ ClojureScript（reagent + re-frame + `jp-go-dds`）へ移行した。判断ロ�
 
 ## 何が入っていて、何が入っていないか
 
-`CLAUDE.md`（抽出前の monorepo 時代の runbook）は 4 つの場所を名指しする。実測
+`AGENTS.md`（抽出前の monorepo 時代の runbook）は 4 つの場所を名指しする。実測
 2026-08-12、上流 `etzhayyim/root`（ローカル checkout `9b57e9e40b`）を直接読んで確かめた:
 
 | runbook が指す場所 | 今日どこに在るか |
 |---|---|
 | `60-apps/etzhayyim-project-contentengine/appview/contentengine-cten0001/` | **✅ ここ**（`appview/contentengine-cten0001/`。パスの前半が落ちた形）。**同時に上流にも原本が残っている**（下記） |
 | `00-contracts/bpmn/com/etzhayyim/contentengine/` | ⚠ **`etzhayyim/root` に在る**（この repo には無い）。`generateContent.bpmn` 2,865B の 1 本だけ |
-| `40-engine/kotoba/crates/kotoba-kotodama/py/…/contentengine_worker_main.py` | ❌ **見つからない**。上流の `40-engine/kotoba/` は**ディレクトリごと消えている**。`kotoba-lang/kotodama-py`（py 資産の移転先）にも `contentengine` の文字列は **0 件**。上流に残る `contentengine_worker_main` の言及 4 件は、すべて**この名前を参照している側**（BPMN のコメント・`src/app.ts`・`CLAUDE.md`・`90-docs/session-history.edn`）で、モジュール本体はどこにも無い |
+| `40-engine/kotoba/crates/kotoba-kotodama/py/…/contentengine_worker_main.py` | ❌ **見つからない**。上流の `40-engine/kotoba/` は**ディレクトリごと消えている**。`kotoba-lang/kotodama-py`（py 資産の移転先）にも `contentengine` の文字列は **0 件**。上流に残る `contentengine_worker_main` の言及 4 件は、すべて**この名前を参照している側**（BPMN のコメント・`src/app.ts`・`AGENTS.md`・`90-docs/session-history.edn`）で、モジュール本体はどこにも無い |
 | `90-docs/adr/2605072000-langgraph-agent-loop-pattern` | ⚠ **`etzhayyim/root` に `.edn` として在る**（`.md` ではない）。この repo には無い |
 
 **したがって「LangGraph 6 ノードのループ」は、この repo からは動かせない。**
-`CLAUDE.md` 末尾の `python -m kotodama.contentengine_worker_main` は**踏めない手順**として
+`AGENTS.md` 末尾の `python -m kotodama.contentengine_worker_main` は**踏めない手順**として
 読むこと（`cd` する先のディレクトリ自体が上流から消えている）。
 
-`CLAUDE.md` が挙げる RisingWave の 2 テーブル（`vertex_contentengine_cohort_profile` /
+`AGENTS.md` が挙げる RisingWave の 2 テーブル（`vertex_contentengine_cohort_profile` /
 `vertex_contentengine_content`）も同様で、**DDL はどこにも無い** —— 上流で
 `vertex_contentengine` に当たるのは runbook 自身と `90-docs/session-history.edn` の 2 件だけ。
 
@@ -90,7 +90,7 @@ migration 記録の宛先を、現在地の根拠に使わないこと。
   `RunContentAgent`（`contentengine.run_content_agent`、timeout 180s、retries 2）
   → `SponsorGateway` → `CreateSponsorSlot`（`contentengine.create_sponsor_slot`、30s）
   → `End`。分岐条件は `includeSponsorSlot = true` / `= false`。
-  **`CLAUDE.md` の Flow 図はこの BPMN と一致する**（runbook のこの部分は今日も正しい）
+  **`AGENTS.md` の Flow 図はこの BPMN と一致する**（runbook のこの部分は今日も正しい）
 - `00-contracts/lexicons/com/etzhayyim/etzhayyim/apps/contentengine/` に **4 本**
   （`generateContent` / `getContent` / `listContent` / `registerCohortProfile`）
 
@@ -206,7 +206,7 @@ production 側のランタイムでは原因が潰れるので、**切り分け�
 
 ```
 README.edn                 115B  機械可読 metadata（:kind :app）。人間向けの説明は入っていない
-CLAUDE.md                        抽出前の runbook。上表のとおり 4 つの参照先のうち 2 つが死に、
+AGENTS.md                        抽出前の runbook。上表のとおり 4 つの参照先のうち 2 つが死に、
                                  1 つは上流に在る。Flow 図と BPMN は今も一致する
 NOTICE                           Apache-2.0 + etzhayyim Charter Rider v3.1
 actor-manifest.jsonld            DID did:web:contentengine.etzhayyim.com / nanoid cten0001 / capability 4 本
